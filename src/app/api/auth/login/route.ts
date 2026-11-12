@@ -1,15 +1,10 @@
-import type { NextRequest } from "next/server";
 import { AppError } from "@/lib/errors";
 import { loginSchema } from "@/modules/auth/schema";
 import { authenticate } from "@/modules/auth/service";
 import { createSession, SESSION_COOKIE, sessionCookieOptions } from "@/modules/auth/session";
 import { audit } from "@/server/audit";
-import { json, parseJson, publicRoute } from "@/server/http";
+import { clientIp, json, parseJson, publicRoute } from "@/server/http";
 import { consumeRateLimit, RATE_LIMITS, rateLimitSubject } from "@/server/rate-limit";
-
-function clientIp(request: NextRequest): string {
-  return request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || request.headers.get("x-real-ip") || "local";
-}
 
 export const POST = publicRoute(async ({ request }) => {
   const { email, password } = await parseJson(request, loginSchema);

@@ -2,7 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import {
   accountLink,
   choose,
-  loginThroughForm,
+  signIn,
   openNewTransaction,
   pesos,
   pickCategory,
@@ -23,7 +23,7 @@ async function expectBalances(page: Page, balances: Record<string, number>) {
 
 test.describe("carga manual", () => {
   test.beforeEach(async ({ page }) => {
-    await loginThroughForm(page, "manual");
+    await signIn(page, "manual");
   });
 
   test("gasto en efectivo, ingreso y transferencia actualizan los saldos", async ({ page }) => {

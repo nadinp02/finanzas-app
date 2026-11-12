@@ -3,7 +3,7 @@ import {
   accountLink,
   choose,
   dayInLastClosedStatement,
-  loginThroughForm,
+  signIn,
   openNewTransaction,
   pesos,
   pickCategory,
@@ -17,7 +17,7 @@ test.describe.configure({ mode: "serial" });
 
 test.describe("tarjeta de crédito (ejemplo crítico)", () => {
   test("compra de $ 69.500 y pago del resumen desde el banco: el gasto se cuenta una sola vez", async ({ page }) => {
-    await loginThroughForm(page, "card");
+    await signIn(page, "card");
     const purchaseDate = dayInLastClosedStatement(26);
 
     // Compra con tarjeta: el comercio sugiere su categoría habitual.
@@ -80,7 +80,7 @@ test.describe("tarjeta de crédito (ejemplo crítico)", () => {
   });
 
   test("compra en cuotas: una cuota por resumen y el resto como cuotas futuras", async ({ page }) => {
-    await loginThroughForm(page, "card");
+    await signIn(page, "card");
     const sheet = await openNewTransaction(page);
     await sheet.getByLabel("Importe").fill("120000");
     await pickCategory(sheet, "Compras");
@@ -102,7 +102,7 @@ test.describe("tarjeta de crédito (ejemplo crítico)", () => {
   });
 
   test("pago parcial del resumen: queda el remanente a pagar", async ({ page }) => {
-    await loginThroughForm(page, "card");
+    await signIn(page, "card");
     const sheet = await openNewTransaction(page);
     await sheet.getByLabel("Importe").fill("100000");
     await pickCategory(sheet, "Supermercado");

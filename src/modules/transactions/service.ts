@@ -267,6 +267,16 @@ export async function createTransaction(
   }
 }
 
+/** Movimientos creados por una carga de voz, en el orden en que se dictaron. */
+export async function listTransactionsByVoiceEntry(userId: string, voiceEntryId: string, db: Tx = prisma): Promise<TransactionDTO[]> {
+  const rows = await db.transaction.findMany({
+    where: { userId, voiceEntryId },
+    include,
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+  });
+  return rows.map(toTransactionDTO);
+}
+
 async function getRow(tx: Tx, userId: string, id: string) {
   const row = await tx.transaction.findFirst({ where: { id, userId }, include });
   if (!row) throw errors.notFound("No encontramos ese movimiento.");

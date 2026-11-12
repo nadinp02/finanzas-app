@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 // Chequeo optimista: solo mira si hay cookie para redirigir antes de renderizar. La validación real
 // de la sesión ocurre en la capa de datos (requireUser y los Route Handlers).
 const SESSION_COOKIES = ["__Host-cc_session", "cc_session"];
-const PUBLIC_PATHS = new Set(["/login", "/~offline"]);
+const PUBLIC_PATHS = new Set(["/login", "/registro", "/recuperar", "/restablecer", "/~offline"]);
 
 export function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;

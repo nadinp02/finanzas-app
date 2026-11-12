@@ -121,7 +121,19 @@ generación de recurrentes, reasignación de categorías) usan transacciones de 
   producción). En la base solo se guarda su SHA-256. Vence a los 60 días, con renovación deslizante.
 - `proxy.ts` hace un chequeo optimista (¿hay cookie?) para redirigir a `/login`; la verificación real
   ocurre en la capa de datos (`requireUser`) en cada página y handler, como recomienda Next.js.
-- Sin registro público: la cuenta se crea con `npm run user:create`.
+- **Registro público** (`POST /api/auth/register`, página `/registro`): crea la cuenta con sus
+  categorías y comercios iniciales, inicia sesión y lleva a la configuración inicial. Límite de 10 altas
+  por hora por IP. Cada cuenta solo accede a sus datos (todas las consultas filtran por `user_id`).
+- **Recuperación por email** (`/recuperar` → `POST /api/auth/password-reset`; `/restablecer` →
+  `POST /api/auth/password-reset/confirm`): token aleatorio de 256 bits, en la base solo su SHA-256;
+  vence en 1 hora, sirve una vez (reclamo atómico) y uno nuevo anula los anteriores. La respuesta es
+  idéntica exista o no la cuenta, y el email se envía con `after()` para que el tiempo de respuesta
+  tampoco lo revele. Al usarlo se cambia la contraseña, se cierran todas las sesiones y se inicia una
+  nueva. El enlace se arma con `APP_URL` (o el dominio de producción de Vercel), nunca con el
+  encabezado Host. La página quita el token de la barra de direcciones y no envía Referer.
+- Emails (`src/server/email.ts`): Brevo (remitente verificado, sin dominio propio) o Resend, por
+  `fetch`. Sin proveedor: en desarrollo se muestran en la consola.
+- Alta y cambio de contraseña también por terminal: `npm run user:create` y `npm run user:reset-password`.
 - Login con rate limit por IP y por email; los intentos fallidos se auditan.
 
 ## 7. Validación y errores
@@ -179,9 +191,18 @@ sequenceDiagram
   `claude-haiku-5-5` reduce costo y latencia).
 - **Respaldo:** sin `ANTHROPIC_API_KEY`, un intérprete local por reglas (números en español, fechas
   relativas, verbos de ingreso/gasto, comercios conocidos) produce borradores que siempre requieren
-  revisión. El analizador de números en español también valida los importes del modelo.
+  revisión. También se usa si el intérprete principal falla. El analizador de números en español valida
+  además los importes del modelo.
+- **Proveedores intercambiables:** `VOICE_INTERPRETER` elige `anthropic`, `openai` (Responses API con
+  `json_schema` estricto, mismo prompt y formato) o `local`. El caso de uso no cambia: solo
+  `providers/index.ts` conoce las implementaciones.
+- **Validación determinística:** cada importe, fecha, comercio, cuenta y cantidad de cuotas tiene que
+  rastrearse hasta la transcripción; lo dudoso queda en revisión.
 - **Privacidad:** el audio se procesa en memoria y no se persiste. Las claves de API solo existen en
   el servidor.
+
+Contrato completo de entrada y salida, reglas de validación, idempotencia y grabación en Safari:
+[VOICE.md](VOICE.md).
 
 ## 9. PWA y funcionamiento sin conexión
 
@@ -276,11 +297,12 @@ Convenciones: JSON; dinero como string decimal (`"69500.00"`); fechas `YYYY-MM-D
 | `POST /api/savings/goals`, `PATCH/DELETE /api/savings/goals/:id` | | |
 | `POST /api/savings/goals/:id/allocations` | `{ amount, note? }` (negativo libera) | `201` · `409 INSUFFICIENT_FREE_BALANCE` |
 | `GET /api/dashboard?month=` | | métricas del mes |
-| `POST /api/voice` | multipart: `audio`, `clientRequestId`, `durationMs` | `{ entry }` |
+| `GET /api/voice` | — | `{ items }` (cargas en revisión) |
+| `POST /api/voice` | multipart: `audio`, `clientRequestId`, `durationMs` | `{ entry }` · 413 · 415 · 429 · 503 sin transcripción |
 | `POST /api/voice/text` | `{ clientRequestId, text }` | `{ entry }` |
 | `GET /api/voice/:id` | | `{ entry }` |
-| `POST /api/voice/:id/confirm` | `{ items[] }` | `{ entry, transactions }` |
-| `POST /api/voice/:id/undo`, `/discard` | | `{ entry }` |
+| `POST /api/voice/:id/confirm` | `{ items[] }` (ver VOICE.md §7) | `{ entry }` con `entry.transactions` · idempotente |
+| `POST /api/voice/:id/undo`, `/discard` | | `{ entry }` · idempotentes · `409 VOICE_EDITED` |
 | `PATCH /api/settings` | `{ name?, defaultAccountId?, voiceAutoSave? }` | `200` |
 | `POST /api/settings/password` | `{ currentPassword, newPassword }` | `204` |
 | `GET /api/cron/daily` | `Authorization: Bearer $CRON_SECRET` | `{ users, created }` |
@@ -290,7 +312,7 @@ Convenciones: JSON; dinero como string decimal (`"69500.00"`); fechas `YYYY-MM-D
 
 | # | Decisión | Alternativas descartadas | Motivo |
 |---|---|---|---|
-| 1 | Monolito modular Next.js | Backend Express, microservicios | Una usuaria, un despliegue; los Route Handlers bastan |
+| 1 | Monolito modular Next.js | Backend Express, microservicios | Un despliegue para pocas usuarias; los Route Handlers bastan |
 | 2 | Sin capa de repositorios | Repositorios sobre Prisma | Prisma ya es la capa de datos; los servicios son el único punto de acceso |
 | 3 | Saldos derivados | Saldos guardados y actualizados | Consistencia por construcción al editar/borrar |
 | 4 | Cuentas y tarjetas en una tabla | Tablas separadas con FKs paralelas | Un movimiento siempre tiene `account_id` (+ `to_account_id`); la tarjeta es un pasivo más |
@@ -304,3 +326,5 @@ Convenciones: JSON; dinero como string decimal (`"69500.00"`); fechas `YYYY-MM-D
 | 12 | Interpretación con Claude + validación determinística + intérprete local | Solo LLM | No se confía ciegamente en el modelo; la app sigue funcionando sin la clave |
 | 13 | Sin `MonthlySnapshot` | Tabla de snapshots | Los informes se derivan de movimientos; un snapshot se desactualiza |
 | 14 | PostgreSQL embebido para desarrollo y pruebas | Docker, instalación del sistema | Funciona sin privilegios de administrador ni Docker |
+| 15 | Proveedores de voz detrás de interfaces, con prompt y formato comunes; interpretación con Claude, OpenAI o reglas | Un solo proveedor fijo | Cambiar de proveedor sin tocar el caso de uso; seguir funcionando sin claves |
+| 16 | `voice_entries.attempts` como token de versión para reprocesar | Bloqueo durante la llamada al proveedor | No retener una conexión de BD mientras se espera a OpenAI o Claude; dos reintentos simultáneos no procesan dos veces |

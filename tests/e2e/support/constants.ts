@@ -20,6 +20,19 @@ export const E2E_USERS = {
   card: { email: "tarjeta@e2e.local", name: "Tamara", onboarded: true },
   settings: { email: "ajustes@e2e.local", name: "Ana", onboarded: true },
   dashboard: { email: "inicio@e2e.local", name: "Inés", onboarded: true },
+  voice: { email: "voz@e2e.local", name: "Valeria", onboarded: true },
+  voiceText: { email: "escribe@e2e.local", name: "Paula", onboarded: true },
+  voiceBrowser: { email: "dicta@e2e.local", name: "Diana", onboarded: true },
+  recover: { email: "recupera@e2e.local", name: "Rita", onboarded: true },
 } as const;
 
 export type E2EUserKey = keyof typeof E2E_USERS;
+
+/**
+ * Transcripción fija que devuelve el proveedor falso de audio (VOICE_STT_PROVIDER=fake): el caso 17.
+ * La interpretación la hace el intérprete local real; no hay claves de OpenAI ni de Anthropic.
+ */
+export const E2E_FAKE_TRANSCRIPT = "Nafta cincuenta mil, supermercado treinta y dos mil";
+
+/** Los emails del servidor E2E se escriben acá (EMAIL_OUTBOX_FILE) en lugar de enviarse. */
+export const E2E_OUTBOX_FILE = path.resolve(".data/e2e-outbox.jsonl");

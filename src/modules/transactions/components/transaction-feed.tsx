@@ -62,7 +62,7 @@ export function TransactionFeed({ initialItems, initialCursor, query, today, emp
   }
 
   return (
-    <div className="grid gap-5">
+    <div className="grid grid-cols-1 gap-5">
       {groupByDate(items).map(([date, rows]) => (
         <section key={date} aria-label={formatDayHeading(date, today)}>
           <h3 className="mb-2 px-1 text-[13px] font-semibold text-muted-foreground first-letter:uppercase">{formatDayHeading(date, today)}</h3>

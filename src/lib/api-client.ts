@@ -46,6 +46,18 @@ export async function api<T>(path: string, { method = "GET", body, signal }: Req
   return readResponse<T>(response);
 }
 
+/** POST multipart (archivos). El navegador arma el `Content-Type` con su separador. */
+export async function apiUpload<T>(path: string, form: FormData, signal?: AbortSignal): Promise<T> {
+  let response: Response;
+  try {
+    response = await fetch(path, { method: "POST", body: form, credentials: "same-origin", cache: "no-store", signal });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") throw error;
+    throw new NetworkError();
+  }
+  return readResponse<T>(response);
+}
+
 export async function readResponse<T>(response: Response): Promise<T> {
   if (response.status === 204) return undefined as T;
   const data: unknown = await response.json().catch(() => null);

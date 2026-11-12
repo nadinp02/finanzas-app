@@ -12,6 +12,10 @@ export interface RateLimitRule {
 export const RATE_LIMITS = {
   loginByIp: { name: "login-ip", limit: 20, windowSeconds: 15 * 60 },
   loginByEmail: { name: "login-email", limit: 8, windowSeconds: 15 * 60 },
+  signupByIp: { name: "signup-ip", limit: 10, windowSeconds: 60 * 60 },
+  resetRequestByIp: { name: "reset-request-ip", limit: 10, windowSeconds: 15 * 60 },
+  resetRequestByEmail: { name: "reset-request-email", limit: 3, windowSeconds: 60 * 60 },
+  resetConfirmByIp: { name: "reset-confirm-ip", limit: 20, windowSeconds: 15 * 60 },
   voice: { name: "voice", limit: 30, windowSeconds: 10 * 60 },
   write: { name: "write", limit: 240, windowSeconds: 60 },
 } satisfies Record<string, RateLimitRule>;

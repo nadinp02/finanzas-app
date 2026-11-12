@@ -121,6 +121,7 @@ model User {
   allocations      SavingsAllocation[]
   voiceEntries     VoiceEntry[]
   sessions         Session[]
+  passwordResets   PasswordResetToken[]
   auditLogs        AuditLog[]
 
   @@map("users")
@@ -430,6 +431,10 @@ model VoiceEntry {
   /// Borradores interpretados y validados, pendientes de revisión.
   items            Json?
   errorCode        String?          @map("error_code") @db.VarChar(60)
+  /// Intentos de procesamiento: token de versión para retomar una carga fallida sin carreras.
+  attempts         Int              @default(1)
+  /// Inicio del intento en curso (una carga en PROCESSING demasiado vieja se puede retomar).
+  startedAt        DateTime         @default(now()) @map("started_at") @db.Timestamptz(3)
   createdAt        DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
   processedAt      DateTime?        @map("processed_at") @db.Timestamptz(3)
   resolvedAt       DateTime?        @map("resolved_at") @db.Timestamptz(3)
@@ -456,6 +461,23 @@ model Session {
   @@index([userId])
   @@index([expiresAt])
   @@map("sessions")
+}
+
+/// Enlaces de recuperación de contraseña enviados por email. Solo se guarda el SHA-256 del token;
+/// vence en 1 hora y sirve una sola vez.
+model PasswordResetToken {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash String    @unique @map("token_hash") @db.VarChar(64)
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(3)
+  usedAt    DateTime? @map("used_at") @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("password_reset_tokens")
 }
 
 /// Contadores de ventana fija para rate limiting. Funciona entre instancias serverless.

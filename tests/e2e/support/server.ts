@@ -9,7 +9,7 @@ import fs from "node:fs";
 import path from "node:path";
 import EmbeddedPostgres from "embedded-postgres";
 import { stopCluster } from "../../../scripts/lib/pg";
-import { E2E_APP_PORT, E2E_DATA_DIR, E2E_DATABASE_URL, E2E_DB_PORT } from "./constants";
+import { E2E_APP_PORT, E2E_BASE_URL, E2E_DATA_DIR, E2E_DATABASE_URL, E2E_DB_PORT, E2E_FAKE_TRANSCRIPT, E2E_OUTBOX_FILE } from "./constants";
 
 if (!fs.existsSync(path.resolve(".next/BUILD_ID"))) {
   console.error("No hay build de producción: corré `npm run build` antes de las pruebas E2E.");
@@ -19,6 +19,7 @@ if (!fs.existsSync(path.resolve(".next/BUILD_ID"))) {
 // Un cluster que quedó vivo de una corrida interrumpida.
 if (fs.existsSync(path.join(E2E_DATA_DIR, "PG_VERSION"))) stopCluster(E2E_DATA_DIR, "immediate");
 fs.rmSync(E2E_DATA_DIR, { recursive: true, force: true });
+fs.rmSync(E2E_OUTBOX_FILE, { force: true });
 
 const pg = new EmbeddedPostgres({
   databaseDir: E2E_DATA_DIR,
@@ -45,7 +46,24 @@ execFileSync(
 const next = spawn(
   process.execPath,
   [path.resolve("node_modules/next/dist/bin/next"), "start", "--port", String(E2E_APP_PORT)],
-  { env: { ...env, NODE_ENV: "production" }, stdio: "inherit" },
+  {
+    env: {
+      ...env,
+      NODE_ENV: "production",
+      // Voz sin servicios externos: transcripción falsa e intérprete local. Las claves vacías pisan .env.
+      VOICE_STT_PROVIDER: "fake",
+      VOICE_FAKE_TRANSCRIPT: E2E_FAKE_TRANSCRIPT,
+      VOICE_INTERPRETER: "local",
+      OPENAI_API_KEY: "",
+      ANTHROPIC_API_KEY: "",
+      // Emails a un archivo (las pruebas leen el enlace de recuperación) y enlaces al servidor E2E.
+      EMAIL_OUTBOX_FILE: E2E_OUTBOX_FILE,
+      APP_URL: E2E_BASE_URL,
+      BREVO_API_KEY: "",
+      RESEND_API_KEY: "",
+    },
+    stdio: "inherit",
+  },
 );
 
 const shutdown = () => {

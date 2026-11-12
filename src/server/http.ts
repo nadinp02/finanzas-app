@@ -160,3 +160,8 @@ export function json(data: unknown, status = 200): NextResponse {
 export function noContent(): Response {
   return new Response(null, { status: 204 });
 }
+
+/** IP del cliente para los límites de intentos (en Vercel, `x-forwarded-for` lo fija la plataforma). */
+export function clientIp(request: NextRequest): string {
+  return request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || request.headers.get("x-real-ip") || "local";
+}

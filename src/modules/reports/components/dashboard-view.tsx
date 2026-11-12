@@ -9,6 +9,7 @@ import { parseDecimal, progressRatio } from "@/lib/money";
 import { CategoryChip } from "@/modules/categories/components/category-chip";
 import { categoryColor } from "@/modules/categories/palette";
 import { TransactionFeed } from "@/modules/transactions/components/transaction-feed";
+import { PendingVoiceAlert } from "@/modules/voice/components/pending-voice-alert";
 import type { ChangeDTO, DashboardDTO } from "../schema";
 import { ExpenseChart } from "./expense-chart";
 
@@ -191,9 +192,10 @@ function CategoryBreakdown({ data }: { data: DashboardDTO }) {
 }
 
 function Alerts({ data }: { data: DashboardDTO }) {
-  if (data.upcoming.length === 0 && data.pending.count === 0) return null;
+  if (data.upcoming.length === 0 && data.pending.count === 0 && data.pendingVoice.length === 0) return null;
   return (
-    <div className="grid gap-2">
+    <div className="grid grid-cols-1 gap-2">
+      <PendingVoiceAlert items={data.pendingVoice} />
       {data.pending.count > 0 && (
         <Link href="/movimientos?status=PENDING" className="flex items-center gap-3 rounded-2xl border border-warning/40 bg-card px-4 py-3 hover:bg-accent/50">
           <AlertCircle className="size-5 shrink-0 text-warning" />
@@ -260,7 +262,7 @@ export function DashboardView({ data }: { data: DashboardDTO }) {
   const hasExpenses = parseDecimal(data.totals.expense) > 0n;
 
   return (
-    <div className="grid gap-4">
+    <div className="grid grid-cols-1 gap-4">
       <Alerts data={data} />
       <MonthSummary data={data} />
       {data.projection && hasExpenses && <ProjectionCard projection={data.projection} />}

@@ -7,6 +7,8 @@ carga por voz. Next.js 16 · React 19 · TypeScript · Prisma 7 · PostgreSQL.
 - Arquitectura y contratos de API: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 - Modelo de datos: [docs/DATABASE.md](docs/DATABASE.md)
 - Reglas financieras: [docs/BUSINESS_RULES.md](docs/BUSINESS_RULES.md)
+- Carga por voz: [docs/VOICE.md](docs/VOICE.md)
+- Despliegue en Vercel (gratis): [docs/DEPLOY.md](docs/DEPLOY.md)
 - Plan y avance: [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md) · [docs/PROGRESS.md](docs/PROGRESS.md)
 
 ## Requisitos
@@ -21,23 +23,23 @@ npm install
 cp .env.example .env            # completar las claves de voz si se van a usar
 npm run db:dev                  # en otra terminal: PostgreSQL local (puerto 5433). Ctrl+C para detenerlo
 npm run db:deploy               # aplica las migraciones
-npm run user:create             # crea la cuenta de acceso (pide email, nombre y contraseña)
-npm run dev                     # http://localhost:3000
+npm run dev                     # http://localhost:3000 → «Creá una» para registrarte
 ```
 
 Al primer ingreso se abre la configuración inicial (saldos de cuentas y deudas de tarjetas).
 
-## Cuenta de acceso
+## Cuentas
 
-No hay registro público. La cuenta se crea con `npm run user:create` y el acceso se recupera con:
+Cualquiera puede crear su cuenta en `/registro`. Cada cuenta tiene sus propias cuentas, tarjetas,
+categorías, comercios y movimientos: nadie ve los datos de otra persona.
 
-```bash
-npm run user:reset-password -- --email tu@email.com
-```
-
-Cambia la contraseña y cierra todas las sesiones abiertas. Requiere acceso a la base (`DATABASE_URL`),
-así que solo puede hacerlo quien administra la app. Para automatizar, la contraseña puede pasarse en
-la variable `NEW_PASSWORD`.
+- **Recuperar la contraseña**: «¿Olvidaste la contraseña?» manda un enlace por email (vence en 1 hora,
+  sirve una vez, cierra las demás sesiones). Se envía con Brevo (`BREVO_API_KEY` y `EMAIL_FROM`, ver
+  [docs/DEPLOY.md](docs/DEPLOY.md)). En desarrollo, sin clave, el email con el enlace se muestra en la
+  consola de `npm run dev`.
+- **Por línea de comandos** (con acceso a la base): `npm run user:create` crea una cuenta y
+  `npm run user:reset-password -- --email tu@email.com` cambia la contraseña y cierra las sesiones
+  (la contraseña puede pasarse en `NEW_PASSWORD`).
 
 ## Scripts
 
@@ -52,11 +54,30 @@ la variable `NEW_PASSWORD`.
 | `npm run test:e2e` | E2E con Playwright (Chromium, viewport iPhone) sobre el build de producción: correr `npm run build` antes. Levanta su propio PostgreSQL descartable y los puertos 3100 y 5435 |
 | `npm run db:dev` | PostgreSQL local persistente en `.data/postgres` |
 | `npm run db:migrate` · `npm run db:deploy` | Crear y aplicar migraciones (desarrollo) · aplicar (producción) |
-| `npm run user:create` · `npm run user:reset-password` | Alta de la cuenta y recuperación de acceso |
+| `npm run user:create` · `npm run user:reset-password` | Alta de una cuenta y cambio de contraseña desde la terminal |
+| `npm run voice:check` | Prueba la transcripción e interpretación reales configuradas en `.env` |
 | `npm run icons` | Regenera los íconos PNG de la PWA |
 
-## Voz (en desarrollo: fase 4, ver PROGRESS)
+## Voz
 
-La transcripción usará OpenAI (`gpt-transcribe`) y la interpretación, Claude. Se configuran con
-`OPENAI_API_KEY` y `ANTHROPIC_API_KEY` en `.env` (ver `.env.example`). Las claves solo viven en el
-servidor. Detalles en [docs/ARCHITECTURE.md §8](docs/ARCHITECTURE.md).
+Un toque en el micrófono graba (hasta 60 s); también se puede escribir la frase. Se transcribe con OpenAI
+(`gpt-transcribe`) o, **sin clave, gratis con el reconocimiento de voz del navegador**; se interpreta con
+Claude (o OpenAI, o el intérprete local por reglas, gratis) y una validación
+determinística verifica que cada importe, fecha, comercio y cuenta se haya dicho. Lo dudoso queda para
+revisar antes de guardar. El audio no se guarda.
+
+| Variable | Para qué |
+|---|---|
+| `OPENAI_API_KEY` | Transcripción del audio. Sin ella dicta el navegador (Chrome, Edge, Safari) y, si no puede, se escribe |
+| `ANTHROPIC_API_KEY` | Interpretación con Claude. Sin ella se usa el intérprete local (siempre pide revisión) |
+| `VOICE_INTERPRETER` | `auto` (por defecto), `anthropic`, `openai` o `local` |
+
+Para probar los proveedores reales configurados (consume créditos):
+
+```bash
+npm run voice:check                                   # interpreta una frase de ejemplo
+npm run voice:check -- --text "Farmacity 69.500 con la visa"
+npm run voice:check -- --audio ./grabacion.m4a        # transcribe y después interpreta
+```
+
+Contrato y reglas: [docs/VOICE.md](docs/VOICE.md).

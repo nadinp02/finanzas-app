@@ -1,4 +1,4 @@
-import { expect, type Locator, type Page } from "@playwright/test";
+import { expect, type BrowserContext, type Locator, type Page } from "@playwright/test";
 import { E2E_PASSWORD, E2E_USERS, type E2EUserKey } from "./constants";
 
 /** Ingreso por la pantalla de login, como lo hace la usuaria. */
@@ -8,6 +8,25 @@ export async function loginThroughForm(page: Page, user: E2EUserKey, path = "/lo
   await page.getByLabel("Contraseña").fill(E2E_PASSWORD);
   await page.getByRole("button", { name: "Ingresar" }).click();
   await expect(page).not.toHaveURL(/\/login/);
+}
+
+type Cookies = Awaited<ReturnType<BrowserContext["cookies"]>>;
+const sessions = new Map<E2EUserKey, Cookies>();
+
+/**
+ * Sesión de la usuaria: la primera vez entra por el formulario; después reutiliza la cookie. Así la
+ * suite no choca con el límite de intentos de login por IP (que se prueba en login.spec.ts).
+ */
+export async function signIn(page: Page, user: E2EUserKey, path = "/"): Promise<void> {
+  const cached = sessions.get(user);
+  if (cached) {
+    await page.context().addCookies(cached);
+    await page.goto(path);
+    if (!new URL(page.url()).pathname.startsWith("/login")) return;
+    sessions.delete(user);
+  }
+  await loginThroughForm(page, user, path === "/" ? "/login" : `/login?next=${encodeURIComponent(path)}`);
+  sessions.set(user, await page.context().cookies());
 }
 
 /** Fecha de hoy en Córdoba (YYYY-MM-DD), igual que la calcula la app. */
@@ -73,4 +92,13 @@ export function transactionRow(page: Page, description: string): Locator {
 /** Saldo que muestra la pantalla Cuentas para una cuenta o tarjeta. */
 export function accountLink(page: Page, name: string): Locator {
   return page.getByRole("link").filter({ has: page.getByText(name, { exact: true }) });
+}
+
+/** Nada más ancho que la pantalla: en el celular un desborde corre toda la vista y desvía los toques. */
+export async function expectNoHorizontalOverflow(page: Page): Promise<void> {
+  const { scrollWidth, clientWidth } = await page.evaluate(() => ({
+    scrollWidth: document.documentElement.scrollWidth,
+    clientWidth: document.documentElement.clientWidth,
+  }));
+  expect(scrollWidth, "ancho del documento").toBeLessThanOrEqual(clientWidth);
 }

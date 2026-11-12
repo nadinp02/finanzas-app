@@ -19,6 +19,7 @@ import { listCardStatuses } from "@/modules/cards/service";
 import { openingDebt } from "@/modules/cards/rules";
 import { listCategories } from "@/modules/categories/service";
 import { listTransactions } from "@/modules/transactions/service";
+import { listPendingVoiceEntries } from "@/modules/voice/service";
 import {
   changeBetween,
   comparisonRange,
@@ -180,7 +181,7 @@ export async function getDashboard(user: DashboardUser, requestedMonth?: YearMon
   const previousMonth = addMonths(month, -1);
   const previousSeriesRange = { from: maxDate(firstDayOfMonth(previousMonth), trackingStart), to: lastDayOfMonth(previousMonth) };
 
-  const [totals, previousTotals, daily, previousDaily, categoryRows, categories, history, pendingFlows, breakdown, pendingCount, pendingItems, recent, cards] =
+  const [totals, previousTotals, daily, previousDaily, categoryRows, categories, history, pendingFlows, breakdown, pendingCount, pendingItems, recent, cards, pendingVoice] =
     await Promise.all([
       range.beforeTracking ? null : totalsBetween(userId, range),
       compareRange ? totalsBetween(userId, compareRange) : null,
@@ -201,6 +202,7 @@ export async function getDashboard(user: DashboardUser, requestedMonth?: YearMon
       listTransactions(userId, { status: "PENDING", limit: 5 }),
       range.beforeTracking ? null : listTransactions(userId, { from: range.from, to: range.to, limit: 5 }),
       range.isCurrent ? listCardStatuses(userId, today) : [],
+      listPendingVoiceEntries(userId),
     ]);
 
   const periodTotals = totals ?? totalsFromRows([]);
@@ -259,6 +261,7 @@ export async function getDashboard(user: DashboardUser, requestedMonth?: YearMon
       accounts: breakdown.balances.filter((account) => account.isActive || account.balance !== 0n).map(({ id, name, type, balance }) => ({ id, name, type, balance: toDecimal(balance) })),
     },
     pending: { count: pendingCount, items: pendingItems.items },
+    pendingVoice,
     upcoming: cards
       .filter((card) => card.isActive && card.lastStatement && parseDecimal(card.lastStatement.remaining) > 0n)
       .map((card) => ({

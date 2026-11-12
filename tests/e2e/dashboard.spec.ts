@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { choose, dayInLastClosedStatement, loginThroughForm, openNewTransaction, pesos, pickCategory, save, today } from "./support/fixtures";
+import { choose, dayInLastClosedStatement, signIn, openNewTransaction, pesos, pickCategory, save, today } from "./support/fixtures";
 
 function stat(page: Page, label: string) {
   // Solo la etiqueta del dato (<p>), no un título de sección con el mismo texto.
@@ -7,7 +7,7 @@ function stat(page: Page, label: string) {
 }
 
 test("inicio: totales del mes, categorías, patrimonio, vencimientos y navegación entre meses", async ({ page }) => {
-  await loginThroughForm(page, "dashboard");
+  await signIn(page, "dashboard");
   const main = page.getByRole("main");
 
   // Sin movimientos: todo en cero y el patrimonio inicial (50.000 + 500.000).

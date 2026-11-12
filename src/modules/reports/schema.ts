@@ -2,6 +2,7 @@ import { yearMonthSchema, z } from "@/lib/validation";
 import type { AccountType } from "@/generated/prisma/enums";
 import type { StatementStatus } from "@/modules/cards/rules";
 import type { TransactionDTO } from "@/modules/transactions/schema";
+import type { PendingVoiceEntry } from "@/modules/voice/schema";
 
 export const dashboardQuerySchema = z.object({ month: yearMonthSchema.optional() });
 
@@ -51,6 +52,8 @@ export interface DashboardDTO {
     accounts: { id: string; name: string; type: AccountType; balance: string }[];
   };
   pending: { count: number; items: TransactionDTO[] };
+  /** Cargas por voz que esperan revisión. */
+  pendingVoice: PendingVoiceEntry[];
   /** Resúmenes de tarjeta con saldo a pagar, por fecha de vencimiento. */
   upcoming: { cardId: string; name: string; period: string; dueDate: string; amount: string; status: StatementStatus }[];
   recent: TransactionDTO[];

@@ -4,7 +4,10 @@ import { createContext, useContext, type ReactNode } from "react";
 import type { TransactionDraft } from "@/modules/transactions/schema";
 
 export interface AppActions {
+  /** Abre la carga por voz y empieza a grabar. Llamar dentro del toque (iOS). */
   openVoice: () => void;
+  /** Retoma una carga por voz pendiente de revisión. */
+  openVoiceEntry: (id: string) => void;
   openQuickAdd: (draft?: TransactionDraft) => void;
 }
 

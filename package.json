@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build && serwist build",
+    "vercel-build": "prisma migrate deploy && npm run build",
     "start": "next start",
     "lint": "eslint",
     "typecheck": "next typegen && tsc --noEmit && tsc --noEmit -p src/worker",
@@ -24,7 +25,8 @@
     "user:create": "tsx --conditions=react-server scripts/create-user.ts",
     "user:reset-password": "tsx --conditions=react-server scripts/reset-password.ts",
     "icons": "tsx scripts/generate-icons.ts",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "voice:check": "tsx --conditions=react-server scripts/voice-check.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "1.5.0",

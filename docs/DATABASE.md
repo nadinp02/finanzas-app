@@ -12,7 +12,7 @@ Fuente de verdad: [`prisma/schema.prisma`](../prisma/schema.prisma) y las migrac
 | Dinero | `NUMERIC(14,2)` | Exacto; ver BUSINESS_RULES §1 |
 | Fechas contables | `DATE` | Un gasto ocurre en un día, no en un instante: evita errores de zona horaria |
 | Instantes | `TIMESTAMPTZ(3)` | Auditoría, sesiones, orden de carga |
-| Multiusuario | `user_id` en toda entidad de negocio | Preparado para más usuarios; todas las consultas filtran por usuaria |
+| Multiusuario | `user_id` en toda entidad de negocio | Registro público: todas las consultas filtran por usuaria |
 | Borrado | Físico, con restricciones de integridad | Ver "Soft delete" más abajo |
 
 ## Diagrama entidad-relación
@@ -27,6 +27,7 @@ erDiagram
   users ||--o{ savings_goals : persigue
   users ||--o{ voice_entries : dicta
   users ||--o{ sessions : inicia
+  users ||--o{ password_reset_tokens : recupera
   users ||--o{ audit_logs : genera
   users }o--o| accounts : "cuenta habitual"
 
@@ -88,7 +89,13 @@ una clasificación interna del patrimonio.
 
 ### `voice_entries`
 Cargas por voz o texto: estado, transcripción, modelos usados, borradores validados (`items`, JSON) y
-duración/tamaño del audio. El audio no se guarda.
+duración/tamaño del audio. El audio no se guarda. `attempts` (token de versión) y `started_at` permiten
+retomar una carga fallida o abandonada sin procesarla dos veces (migración `20261105180000_voice_attempts`).
+
+### `password_reset_tokens`
+Enlaces de recuperación de contraseña: solo el SHA-256 del token, vencimiento (1 hora) y `used_at` (un
+solo uso). Uno nuevo borra los anteriores sin usar de la misma usuaria (migración
+`20261112021858_password_reset_tokens`).
 
 ### `sessions`, `rate_limit_buckets`, `audit_logs`
 Sesiones (el id es el SHA-256 del token), contadores de rate limiting por ventana fija (funcionan entre

@@ -1,12 +1,12 @@
 import { expect, test } from "@playwright/test";
 import { E2E_PASSWORD, E2E_USERS } from "./support/constants";
-import { accountLink, choose, loginThroughForm, openNewTransaction, pesos, pickCategory, save, transactionRow } from "./support/fixtures";
+import { accountLink, choose, signIn, openNewTransaction, pesos, pickCategory, save, transactionRow } from "./support/fixtures";
 
 test.describe.configure({ mode: "serial" });
 
 test.describe("configuración", () => {
   test.beforeEach(async ({ page }) => {
-    await loginThroughForm(page, "settings");
+    await signIn(page, "settings");
   });
 
   test("categoría nueva y borrado con reasignación de sus movimientos", async ({ page }) => {

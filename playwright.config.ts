@@ -29,7 +29,13 @@ export default defineConfig({
     {
       name: "iphone",
       // Viewport, escala y táctil de iPhone sobre Chromium (el único navegador instalado).
-      use: { ...devices["iPhone 15"], defaultBrowserType: "chromium" },
+      use: {
+        ...devices["iPhone 15"],
+        defaultBrowserType: "chromium",
+        // Micrófono simulado (un tono) con permiso concedido: prueba la grabación real del navegador.
+        permissions: ["microphone"],
+        launchOptions: { args: ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream"] },
+      },
     },
   ],
   webServer: {

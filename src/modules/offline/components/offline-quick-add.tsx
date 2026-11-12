@@ -13,7 +13,7 @@ export function OfflineQuickAdd() {
   const [open, setOpen] = useState(false);
   return (
     <ReferenceDataProvider>
-      <AppActionsProvider value={{ openQuickAdd: () => setOpen(true), openVoice: () => setOpen(true) }}>
+      <AppActionsProvider value={{ openQuickAdd: () => setOpen(true), openVoice: () => setOpen(true), openVoiceEntry: () => setOpen(true) }}>
         <div className="grid gap-3">
           <Button size="lg" onClick={() => setOpen(true)}>
             <Plus /> Anotar un movimiento

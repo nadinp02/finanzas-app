@@ -23,7 +23,7 @@ export interface CreateUserInput {
   password: string;
 }
 
-/** Alta de usuaria con sus categorías y comercios iniciales. Solo se usa desde la línea de comandos. */
+/** Alta de usuaria con sus categorías y comercios iniciales (registro público y línea de comandos). */
 export async function createUser(input: CreateUserInput): Promise<{ id: string }> {
   const email = input.email.trim().toLowerCase();
   const name = input.name.trim();
@@ -58,7 +58,8 @@ export async function resetPassword(email: string, newPassword: string): Promise
   await setPassword(user.id, newPassword);
 }
 
-async function setPassword(userId: string, newPassword: string): Promise<void> {
+/** Cambia la contraseña y cierra todas las sesiones de la usuaria. */
+export async function setPassword(userId: string, newPassword: string): Promise<void> {
   passwordSchema.parse(newPassword);
   const passwordHash = await hashPassword(newPassword);
   await prisma.user.update({ where: { id: userId }, data: { passwordHash } });

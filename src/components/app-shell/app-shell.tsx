@@ -1,9 +1,10 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { TransactionDraft } from "@/modules/transactions/schema";
 import { TransactionSheet } from "@/modules/transactions/components/transaction-sheet";
 import { useOutboxSync } from "@/modules/offline/use-outbox";
+import { VoiceSheet, type VoiceSheetHandle } from "@/modules/voice/components/voice-sheet";
 import { AppActionsProvider } from "./app-actions";
 import { BottomNav, BottomNavView, Sidebar, SidebarView } from "./navigation";
 import { ReferenceDataProvider } from "./reference-data";
@@ -34,16 +35,21 @@ function AppShellInner({ children }: { children: ReactNode }) {
     focusKeyboardProxy();
     setQuickAdd({ open: true, draft });
   }, []);
-  // La carga por voz se conecta en la fase 4; mientras tanto el micrófono abre la carga manual.
-  const openVoice = useCallback(() => openQuickAdd(), [openQuickAdd]);
-  const actions = useMemo(() => ({ openQuickAdd, openVoice }), [openQuickAdd, openVoice]);
+  const voice = useRef<VoiceSheetHandle>(null);
+  // Se llama dentro del toque: iOS solo da el micrófono durante el gesto del usuario.
+  const openVoice = useCallback(() => voice.current?.openAndRecord(), []);
+  const openVoiceEntry = useCallback((id: string) => voice.current?.openEntry(id), []);
+  const actions = useMemo(() => ({ openQuickAdd, openVoice, openVoiceEntry }), [openQuickAdd, openVoice, openVoiceEntry]);
 
-  // Accesos directos del manifest: /?nuevo=1 y /?voz=1. Se abre después del primer pintado.
+  // Accesos directos del manifest: /?nuevo=1 y /?voz=1 (sin gesto: la voz abre sin grabar).
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (!params.has("nuevo") && !params.has("voz")) return;
     window.history.replaceState(null, "", window.location.pathname);
-    const timer = window.setTimeout(() => setQuickAdd({ open: true }), 0);
+    const timer = window.setTimeout(() => {
+      if (params.has("voz")) voice.current?.open();
+      else setQuickAdd({ open: true });
+    }, 0);
     return () => window.clearTimeout(timer);
   }, []);
 
@@ -58,6 +64,7 @@ function AppShellInner({ children }: { children: ReactNode }) {
       <Suspense fallback={<BottomNavView pathname={null} />}>
         <BottomNav />
       </Suspense>
+      <VoiceSheet ref={voice} onManualEntry={() => openQuickAdd()} />
       <TransactionSheet
         open={quickAdd.open}
         draft={quickAdd.draft}

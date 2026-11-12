@@ -8,6 +8,8 @@ import { listCategories } from "@/modules/categories/service";
 import type { CategoryDTO } from "@/modules/categories/schema";
 import { listMerchants } from "@/modules/merchants/service";
 import type { MerchantDTO } from "@/modules/merchants/schema";
+import { transcriptionMode, voiceProviders } from "@/modules/voice/providers";
+import type { VoiceTranscriptionMode } from "@/modules/voice/schema";
 import type { UpdateSettingsInput } from "./schema";
 
 export async function updateSettings(userId: string, input: UpdateSettingsInput): Promise<void> {
@@ -32,6 +34,8 @@ export interface BootstrapData {
   accounts: { id: string; name: string; type: AccountType; isActive: boolean; openingDate: string }[];
   categories: CategoryDTO[];
   merchants: MerchantDTO[];
+  /** Ausente en las copias guardadas en el dispositivo por versiones anteriores. */
+  voice?: { transcription: VoiceTranscriptionMode };
 }
 
 /** Datos de referencia para formularios: se guardan en IndexedDB para cargar sin conexión. */
@@ -57,5 +61,6 @@ export async function getBootstrap(userId: string): Promise<BootstrapData> {
       .map((account) => ({ ...account, openingDate: fromDbDate(account.openingDate) })),
     categories,
     merchants,
+    voice: { transcription: transcriptionMode(voiceProviders()) },
   };
 }

@@ -1,8 +1,9 @@
 # Progreso
 
-Última actualización: 2026-11-05 (segunda jornada). Se cerraron las fases 1, 2 y 3: los flujos se
-recorrieron en el navegador (Chromium con viewport de iPhone) y quedaron cubiertos por E2E. Compila,
-pasa lint y todas las pruebas, y no hay procesos en ejecución.
+Última actualización: 2026-11-05 (tercera jornada). Fases 1 a 3 terminadas. **Fase 4 (voz) implementada y
+verificada con proveedores falsos y el intérprete local; falta validarla con OpenAI y Anthropic reales y en
+un iPhone físico** (ver «Fase 4: estado y validación pendiente»). No se avanzó a la fase 5. Compila, pasa
+lint y todas las pruebas, y no hay procesos en ejecución.
 
 ## Estado por fase
 
@@ -12,9 +13,10 @@ pasa lint y todas las pruebas, y no hay procesos en ejecución.
 | 1 — Fundaciones | **Terminada** | Auth, sesiones, PWA, sistema de diseño, infraestructura de pruebas (Vitest + Playwright) |
 | 2 — Motor financiero | **Terminada** | Motor, servicios, API y pantallas; integración + E2E de login, configuración inicial, carga manual, tarjeta y configuración |
 | 3 — Dashboard | **Terminada** | Informes, `GET /api/dashboard` e inicio con selector de mes, gráfico, categorías, patrimonio y vencimientos. Los recurrentes se suman a proyección y vencimientos en la fase 5 |
-| 4 — Voz | **Siguiente** | El botón de micrófono abre la carga manual hasta implementarla |
+| 4 — Voz | **Implementada, en revisión** | Todo el flujo funciona y está probado con transcripción falsa e intérprete local. Los adaptadores reales (OpenAI, Claude) tienen pruebas de contrato pero no se ejecutaron contra los servicios: no se marca terminada |
 | 5 — Automatización | Pendiente | Esquema y tablas de idempotencia ya existen |
-| 6 — Offline y estabilización | Adelantada en parte | Cola offline e IndexedDB hechas; faltan E2E, headers de seguridad, cron, despliegue |
+| 6 — Offline y estabilización | Adelantada en parte | Cola offline e IndexedDB hechas; faltan E2E, headers de seguridad, cron. Despliegue documentado (DEPLOY.md), sin ejecutar |
+| Extra — Cuentas para varias personas | **Implementada** | Registro público, recuperación de contraseña por email (Brevo/Resend), guía de Vercel + Neon. Integración + E2E con el email escrito a un archivo; falta probar el envío real con Brevo |
 
 Ninguna fase se marca terminada hasta recorrer sus flujos en el navegador y cubrirlos con E2E.
 
@@ -24,10 +26,11 @@ Ninguna fase se marca terminada hasta recorrer sus flujos en el navegador y cubr
 |---|---|
 | `npx tsc --noEmit` (app) y `-p src/worker` (service worker) | Sin errores |
 | `npx eslint` | 0 errores, 0 advertencias |
-| `npx vitest run` | **120/120** pruebas en 10 archivos |
-| `npx playwright test` | **17/17** E2E en 6 archivos (build de producción + PostgreSQL embebido) |
+| `npx vitest run` | **227/227** pruebas en 16 archivos (175 unitarias, 52 de integración) |
+| `npx playwright test` | **22/22** E2E en 7 archivos (build de producción + PostgreSQL embebido) |
 | `npx next build` | Compila sin errores en el log. Rutas: shells estáticos, prerender parcial en páginas con sesión, API dinámica |
-| `npx serwist build` | Genera `public/sw.js` con 41 URLs precacheadas (1,9 MB), incluye `/~offline` |
+| `npx serwist build` | Genera `public/sw.js` con 42 URLs precacheadas (1,9 MB), incluye `/~offline` |
+| `npm run voice:check` | Corre sin claves (intérprete local). Con claves prueba los proveedores reales: **no ejecutado** |
 | Procesos | Ninguno en ejecución (el PostgreSQL de E2E se detiene con `pg_ctl` y su carpeta se borra) |
 | Git | Repositorio inicializado, **sin commits**: todo está sin confirmar a la espera de revisión |
 
@@ -45,6 +48,12 @@ Ninguna fase se marca terminada hasta recorrer sus flujos en el navegador y cubr
 | `src/modules/reports/rules.test.ts` | 18 | Totales, rangos, comparación a la misma altura, proyección (§8.2), gasto por categoría raíz, serie acumulada |
 | `tests/integration/finance-engine.test.ts` | 21 | Casos financieros contra PostgreSQL real (ver tabla siguiente) y orden de cuentas |
 | `tests/integration/reports.test.ts` | 7 | Casos 14 y 15, mes anterior al inicio, comparación, proyección con pendientes, vencimientos, identidad de control del patrimonio |
+| `src/modules/voice/numbers.test.ts` | 35 | Importes en palabras, dígitos y jerga («lucas», «palo», «50k»), centavos con «con», varios importes, cuotas; fechas y horas que no son importes |
+| `src/modules/voice/dates.test.ts` | 6 | Hoy, ayer, anteayer, días de la semana, «el 15», «15 de octubre», «3/11», «hace 3 días», expresiones vagas |
+| `src/modules/voice/rules.test.ts` | 32 | Validación determinística: nada se inventa (importe, fecha, comercio, cuenta, cuotas), ambigüedades, tipo, confianza, avisos; intérprete local |
+| `src/modules/voice/providers/providers.test.ts` | 14 | Contrato de los adaptadores con `fetch`/SDK simulados: forma de cada solicitud a OpenAI y Anthropic, rechazos, errores; selección de proveedores |
+| `src/modules/voice/recording.test.ts` | 3 | Formato de grabación por navegador (Safari: mp4), errores de micrófono |
+| `tests/integration/voice.test.ts` | 17 | Caso 17, reintentos sin duplicar, confirmación paralela, guardado automático y deshacer, importe inventado, duplicados, respaldo local, reproceso de fallidas y abandonadas, revisión parcial, errores del motor por ítem, descarte, aislamiento entre usuarias |
 
 ### E2E (Playwright, `tests/e2e`)
 
@@ -61,6 +70,7 @@ arranca `next start` en el 3100 sobre el build de producción. `global-teardown.
 | `card.spec.ts` | 3 | Ejemplo crítico (compra 69.500 → pago desde el banco: 500.000 → 430.500, deuda 0, un solo gasto), cuotas, pago parcial |
 | `settings.spec.ts` | 4 | Categoría con reasignación, comercio con categoría habitual sugerida, alta de cuenta y orden, cuenta habitual, cambio de contraseña |
 | `dashboard.spec.ts` | 1 | Totales del mes, categorías, gráfico, vencimiento de tarjeta, patrimonio y ahorro acumulado, navegación entre meses, mes anterior al inicio |
+| `voice.spec.ts` | 5 | Caso 17 con grabación real del navegador (micrófono simulado de Chromium), corrección y guardado; corte de conexión con reintento sin duplicar y aviso de duplicado; ingreso escrito con fecha y cuenta, guardar y deshacer; dudas, cierre y retomar desde el inicio; frase sin importes. Sin desborde horizontal |
 
 ### Casos financieros obligatorios
 
@@ -82,7 +92,7 @@ arranca `next start` en el 3100 sobre el build de producción. `global-teardown.
 | 14 | Consultar período anterior | ✅ Integración (informe del mes cerrado con saldos a su cierre) + E2E (navegación) |
 | 15 | Ahorro mensual | ✅ Integración (transferencias, pagos y ajustes no cuentan) + E2E |
 | 16 | Saldos | ✅ Integración (a distintas fechas, cuentas abiertas después, patrimonio) |
-| 17 | Voz con varios movimientos | Pendiente (fase 4) |
+| 17 | Voz con varios movimientos | ✅ Integración + E2E con proveedores falsos e intérprete local. Falta con proveedores reales |
 | 18 | Reintento offline sin duplicar | Parcial: idempotencia por `clientId` probada en el servicio; falta E2E offline |
 
 Además: validaciones (fecha futura, anterior a la apertura, ingreso a tarjeta, categoría de otro tipo,
@@ -146,6 +156,32 @@ configuración inicial con deuda de tarjeta y cuotas previas.
   anterior y tooltip), categorías con enlace a los movimientos filtrados, patrimonio con ahorro
   acumulado y últimos movimientos. Un mes anterior al inicio muestra un estado vacío explicativo.
 
+### Fase 4 (voz)
+Contrato completo en [VOICE.md](VOICE.md).
+
+- **Analizador de español** (`numbers.ts`, `dates.ts`): importes en palabras, dígitos y jerga; fechas
+  relativas y absolutas; cuotas. Distingue importes de cantidades, fechas y horas.
+- **Validación determinística** (`rules.ts`): cada importe, fecha, comercio, cuenta y cantidad de cuotas
+  tiene que rastrearse hasta la transcripción; lo que no se dijo no se guarda. Las ambigüedades (cuenta
+  ambigua o inexistente, fecha vaga, tipo contradictorio, baja confianza, posible duplicado) dejan la
+  carga en revisión con el motivo.
+- **Proveedores intercambiables** (`providers/`): interfaces `Transcriber` y `TransactionInterpreter`;
+  OpenAI `gpt-transcribe` (multipart con `languages[]=es`, `keywords[]` y `prompt`, verificado contra la
+  referencia oficial), Claude (`beta.messages.parse` + Zod, `effort: low`, `fallbacks: "default"`), OpenAI
+  Responses API (`json_schema` estricto) e intérprete local. Prompt y formato comunes. `VOICE_INTERPRETER`
+  elige; si el principal falla se usa el local.
+- **Caso de uso** (`service.ts`): idempotencia por `clientRequestId` (con `attempts` como token para
+  reprocesar fallidas o abandonadas sin carreras), guardado automático en una transacción si nada está en
+  duda, confirmación idempotente con bloqueo de fila, deshacer (si nada se editó) y descartar.
+- **API**: `GET/POST /api/voice`, `POST /api/voice/text`, `GET /api/voice/:id`,
+  `POST /api/voice/:id/confirm|undo|discard`. Límite de 30 cargas cada 10 minutos; `maxDuration = 60`.
+- **UI**: un toque en el micrófono graba (el permiso y el `AudioContext` se piden dentro del gesto, como
+  exige iOS); estados listo, grabando (tiempo y nivel), procesando, revisión editable, guardado con
+  «Deshacer» y error con reintentar, grabar de nuevo, escribir o carga manual; sin conexión ofrece la carga
+  manual. Las cargas en revisión aparecen en el inicio y se retoman. Escritura alternativa.
+- **Migración** `20261105180000_voice_attempts` (`attempts` y `started_at` en `voice_entries`).
+- `npm run voice:check`: prueba los proveedores reales configurados, sin base de datos.
+
 ### Adelantado de la fase 6
 - Cola offline en IndexedDB (`src/modules/offline`): si no hay red el alta se encola con su `clientId`,
   se sincroniza al abrir la app, al volver la conexión y al volver a primer plano (Web Locks entre
@@ -157,7 +193,6 @@ configuración inicial con deuda de tarjeta y cuotas previas.
 | # | Pendiente | Fase |
 |---|---|---|
 | 2 | `/ahorros` y `/recurrentes` están enlazadas desde «Más» y la barra lateral pero todavía no existen (404) | 5 |
-| 3 | El micrófono abre la carga manual: la voz no está implementada (endpoints `/api/voice/*` documentados, sin código) | 4 |
 | 5 | Headers de seguridad y CSP documentados en ARCHITECTURE §10 pero **no aplicados** en `next.config.ts` | 6 |
 | 6 | `/api/cron/daily`, recurrentes, ahorros y recordatorios sin implementar | 5 |
 | 7 | Confirmaciones de borrado con `window.confirm` (funciona en iOS; mejorable con `AlertDialog`) | 6 |
@@ -180,6 +215,68 @@ Resuelto el 2026-11-05 (encontrado al recorrer la app en el navegador):
 - **Errores falsos en el log del build**: los wrappers de Route Handlers atrapaban el error interno con
   el que Next marca una ruta como dinámica durante el prerender y lo registraban como 500. Ahora lo
   relanzan con `unstable_rethrow` (`src/server/http.ts`).
+
+Resuelto el 2026-11-05, tercera jornada (encontrado por las E2E y las capturas en viewport de iPhone):
+
+- **La página quedaba más ancha que el celular** cuando una fila de movimiento tenía un subtítulo largo
+  («Transporte › Combustible · Efectivo»). Las grillas del feed y del inicio dejaban crecer a sus ítems al
+  ancho mínimo del texto sin truncar. En el celular eso corre toda la vista y los toques caen en otro lado.
+  Era de la fase 2 y se notó con las categorías con subcategoría que asigna la voz. Ahora usan
+  `grid-cols-1`, y las E2E de voz verifican que no haya desborde horizontal.
+- **Lo mismo en el aviso de carga por voz pendiente** (transcripción truncada) y en las tarjetas de
+  revisión (un `<fieldset>` tiene `min-inline-size: min-content` por defecto): `min-w-0`.
+- **La suite E2E chocaba con el límite de intentos de login por IP** (20 cada 15 minutos) al pasar de 17 a
+  22 pruebas. Era la protección funcionando: ahora cada usuaria entra por el formulario una vez y las
+  pruebas siguientes reutilizan su sesión (`signIn`). El login se sigue probando completo en
+  `login.spec.ts`.
+
+## Fase 4: estado y validación pendiente
+
+**Qué está verificado**: todo el flujo con la transcripción falsa (`VOICE_STT_PROVIDER=fake`) y el
+intérprete local real: grabación con `MediaRecorder` en Chromium (micrófono simulado), envío, reintentos,
+validación, revisión, guardado, deshacer, descarte y retomar. Los adaptadores reales tienen pruebas de
+contrato (forma exacta de cada solicitud y manejo de respuestas y errores) con `fetch` y SDK simulados.
+
+**Qué no está verificado** (por eso la fase no está terminada):
+
+1. **Llamadas reales a OpenAI y Anthropic**: no hay claves configuradas. No se midió la calidad de la
+   transcripción ni de la interpretación, ni la latencia o el costo. El modelo por defecto para interpretar
+   con OpenAI (`gpt-6-luna`) sale de la documentación oficial, pero no se probó.
+2. **Safari en un iPhone físico**: las E2E usan Chromium con viewport de iPhone. El formato `audio/mp4`,
+   el permiso de micrófono, el modo PWA instalada y la interrupción por llamadas no se probaron en un
+   dispositivo. El micrófono exige HTTPS: en el iPhone hace falta un despliegue o un túnel, porque
+   `http://IP-local` no sirve.
+
+**Limitaciones conocidas**
+
+- El intérprete local es heurístico: separa por importe y usa palabras clave. Sin separadores puede asignar
+  mal el texto de cada movimiento, y por eso siempre pide revisión.
+- La detección de duplicados compara solo contra movimientos guardados, no contra otras cargas en revisión.
+- Las transcripciones y los borradores se guardan sin límite de tiempo. Purgar las cargas resueltas
+  antiguas queda para el cron de la fase 5/6.
+- «Deshacer» no vence; se bloquea si alguno de los movimientos se editó.
+- La voz necesita conexión: no hay cola offline para audio (sí para la carga manual).
+- **Sin claves (gratis)**: sin `OPENAI_API_KEY` se dicta con el reconocimiento de voz del navegador
+  (VOICE.md §9 bis) y sin `ANTHROPIC_API_KEY` interpreta el intérprete local. Probado con un
+  `SpeechRecognition` simulado en Chromium (E2E) y pruebas del hook; falta probarlo hablando en un
+  teléfono real (Chrome Android y Safari iOS, que exige tener Siri/dictado activado).
+- Por voz solo se registran gastos e ingresos. Los pagos de tarjeta y las transferencias se avisan y se
+  cargan a mano.
+
+**Pasos para conectar los proveedores reales**
+
+1. Crear las claves en https://platform.openai.com/api-keys y https://console.anthropic.com/ y cargarlas
+   en `.env` (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`). En producción, como variables de entorno del
+   hosting (nunca en el cliente).
+2. Opcional: `ANTHROPIC_MODEL=claude-haiku-5-5` (más barato y rápido) o `VOICE_INTERPRETER=openai`.
+3. `npm run voice:check`, y después `npm run voice:check -- --text "..."` con frases propias. Revisar que
+   la validación no marque dudas en frases claras.
+4. Grabar notas de voz en el iPhone (app Notas de voz, .m4a) y correr
+   `npm run voice:check -- --audio archivo.m4a`: comprueba transcripción e interpretación con audio real.
+5. Reiniciar `npm run dev` y probar en la app desde la computadora. En el iPhone, abrirla por HTTPS
+   (despliegue de prueba o túnel), dar permiso al micrófono y repetir el caso 17, fechas relativas, cuentas
+   mencionadas, una frase ambigua y el guardado automático (Más › Preferencias).
+6. Si todo responde bien, marcar la fase 4 como terminada en este archivo.
 
 ## Decisiones técnicas tomadas
 
@@ -208,13 +305,18 @@ Detalle y justificación en ARCHITECTURE §14. Resumen de las que surgieron de v
   por ahora solo los pendientes del mes; las ocurrencias recurrentes se suman en la fase 5.
 - **Deuda en el resumen de Cuentas** se muestra como «−$» (resta del patrimonio); en el inicio y en
   cada tarjeta, como monto adeudado sin signo.
+- **Voz (fase 4)**: un toque en el micrófono ya graba (iOS exige pedir el micrófono dentro del gesto). Sin
+  mención de cuenta se usa la cuenta habitual (BUSINESS_RULES §12.2) y se informa; sin fecha, hoy. La
+  interpretación también puede hacerla OpenAI (`VOICE_INTERPRETER=openai`) con el mismo prompt. El
+  intérprete local nunca guarda solo. Un importe que no se puede rastrear hasta lo dicho queda vacío en
+  lugar de sugerido.
 
 ## Configuración externa necesaria
 
 | Qué | Para qué | Estado |
 |---|---|---|
-| `OPENAI_API_KEY` | Transcripción de audio | Falta crearla |
-| `ANTHROPIC_API_KEY` | Interpretación de la voz | Falta crearla (sin ella se usará el intérprete local) |
+| `OPENAI_API_KEY` | Transcripción de audio (y opcionalmente interpretación) | Opcional, pago por uso: sin ella dicta el navegador gratis |
+| `ANTHROPIC_API_KEY` | Interpretación de la voz con Claude | Opcional, pago por uso (aparte de la suscripción a Claude): sin ella se usa el intérprete local, que siempre pide revisión |
 | PostgreSQL administrado + `DATABASE_URL` | Producción | Falta elegir proveedor |
 | Proyecto en Vercel | Despliegue | Pendiente |
 | `CRON_SECRET` | Cron diario | Opcional |
@@ -226,18 +328,35 @@ Detalle y justificación en ARCHITECTURE §14. Resumen de las que surgieron de v
   `demo@cuentasclaras.local` sin configuración inicial. Su contraseña se puede redefinir con
   `npm run user:reset-password -- --email demo@cuentasclaras.local`.
 - Playwright Chromium está instalado (se usa para E2E y para `npm run icons`).
-- E2E: `npm run build` y después `npm run test:e2e`. Usa los puertos 3100 y 5435 y `.data/postgres-e2e`,
+- E2E: `npm run build` y después `npm run test:e2e`. El servidor de E2E usa transcripción falsa (caso 17)
+  e intérprete local, y pisa las claves de `.env` con valores vacíos. Usa los puertos 3100 y 5435 y `.data/postgres-e2e`,
   que se borra al terminar. Playwright lo apaga bien solo; si se corta el servidor E2E desde afuera en
   Windows pueden quedar vivos `next start` o algún `postgres.exe` hijo: `taskkill /T /F` sobre el
   proceso padre y `taskkill /F` sobre el `postgres.exe` que quede.
 
 ## Próximos pasos (en orden)
 
-1. Fase 4: voz (analizador de números y fechas en español, intérprete local, adaptadores OpenAI y
-   Claude detrás de interfaces, validación determinística, revisión, confirmar/deshacer/descartar,
-   idempotencia). UI: micrófono con estados, revisión de borradores y escritura alternativa. Caso 17 y
-   E2E con `VOICE_STT_PROVIDER=fake`. Los pendientes que genere ya aparecen en el inicio.
-2. Fase 5: recurrentes, ahorros y objetivos, recordatorios y cron. Casos 10 a 13. Resuelve `/ahorros` y
-   `/recurrentes` (hoy 404) y suma las ocurrencias recurrentes a la proyección y a los vencimientos.
+1. **Revisión de la fase 4 por la usuaria** y validación con proveedores reales y un iPhone físico (pasos
+   en «Fase 4: estado y validación pendiente»). Recién entonces se marca terminada.
+2. Fase 5 (en pausa hasta validar la voz): recurrentes, ahorros y objetivos, recordatorios y cron. Casos 10
+   a 13. Resuelve `/ahorros` y `/recurrentes` (hoy 404), suma las ocurrencias recurrentes a la proyección y
+   a los vencimientos, y puede purgar cargas por voz resueltas antiguas.
 3. Fase 6: headers de seguridad y CSP, E2E offline (caso 18), búsqueda sin acentos, `AlertDialog` en
    lugar de `window.confirm`, accesibilidad, rendimiento y guía de despliegue en Vercel.
+
+## Cuentas para varias personas (2026-11-11)
+
+- **Registro público** en `/registro` (antes solo por terminal). Cada cuenta arranca con sus propias
+  categorías y comercios y pasa por la configuración inicial. Los datos ya estaban aislados por
+  `user_id`; se sumó una prueba de que dos cuentas no comparten categorías.
+- **Recuperación por email**: tabla `password_reset_tokens`, enlace de 1 hora y un solo uso. Pruebas de
+  integración (hash, un solo uso con usos simultáneos, vencido, anulado por uno nuevo, otra usuaria) y
+  E2E (pedir el enlace, leerlo del email, cambiar la contraseña, la anterior deja de servir, el enlace no
+  se reusa, email sin cuenta no recibe nada).
+- **Email**: Brevo por defecto porque permite enviar a cualquier dirección verificando solo el
+  remitente; con un `*.vercel.app` no se puede verificar dominio (Resend lo exige).
+- **Vercel**: `vercel-build` aplica las migraciones antes de compilar; `prisma.config.ts` usa
+  `DATABASE_URL_UNPOOLED` (conexión directa de Neon) para migrar.
+
+**Falta verificar**: el despliegue real en Vercel + Neon y la entrega de emails con Brevo (incluido si
+llegan a spam con un remitente de Gmail).
